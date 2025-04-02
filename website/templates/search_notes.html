@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Filter{% endblock %}
+{% block content %}
+<h3>Filter</h3>
+<form method="POST">
+  <div class="form-group">
+    <label for="start_date">Start Date</label>
+    <input type="date" name="start_date" class="form-control" />
+  </div>
+  <div class="form-group">
+    <label for="end_date">End Date</label>
+    <input type="date" name="end_date" class="form-control" />
+  </div>
+  <div class="form-group">
+    <label for="keyword">Keyword</label>
+    <input type="text" name="keyword" class="form-control" placeholder="e.g. meeting" />
+  </div>
+  <div class="form-group">
+    <label for="tags">Tags (optional)</label>
+    <select name="tags" id="tags" class="form-control" multiple style="min-height: 100px; line-height: 1.6;">
+      {% for tag in all_tags %}
+        <option value="{{ tag.id }}">{{ tag.name }}</option>
+      {% endfor %}
+    </select>
+    <small class="form-text text-muted">Hold Ctrl (or Cmd) to select multiple tags</small>
+  </div>  
+  <button type="submit" class="btn btn-primary">Search</button>
+  <a href="/" class="btn btn-secondary">Back to Notes</a>
+</form>
+
+<hr />
+
+{% if notes %}
+  <h4>Search Results: </h4>
+  <p class="text-muted">Found {{ notes | length }} matching note{{ 's' if notes|length != 1 else '' }}</p>
+  {% if filter_summary %}
+    <p class="text-muted">Filtered by: {{ filter_summary | join(', ') }}</p>
+  {% endif %}
+
+  <ul class="list-group mt-3">
+    {% for note in notes %}
+    <li class="list-group-item">
+      {{ note['data'] }}
+      <br />
+      <small class="text-muted">Created: {{ note['date'].strftime('%Y-%m-%d %H:%M') }}</small>
+      <div class="mt-2">
+        <a href="/edit-note/{{ note['id'] }}" class="btn btn-sm btn-outline-primary">Edit</a>
+        <form method="POST" action="/delete-note-direct" style="display:inline;">
+          <input type="hidden" name="noteId" value="{{ note['id'] }}">
+          <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+{% elif request.method == 'POST' %}
+  <div class="alert alert-warning mt-3">No note found!</div>
+{% endif %}
+{% endblock %}
+
+{% block javascript %}
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+  <script>
+    $(document).ready(function() {
+      $('#tags').select2({
+        placeholder: "Select tag(s)",
+        allowClear: true,
+        width: '100%'
+      });
+    });
+  </script>
+{% endblock %}

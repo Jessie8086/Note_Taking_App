@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Edit Note{% endblock %}
+{% block content %}
+
+<h3>Edit Note</h3>
+
+<form method="POST">
+  <!-- Note content -->
+  <textarea name="note" id="note" class="form-control">{{ note.data }}</textarea>
+  <br />
+
+  <!-- Tag selection -->
+  <div id="tag-selection" class="mb-2">
+    {% for tag in tags %}
+      {% set is_selected = tag.id in note_tag_ids %}
+      <button type="button"
+              class="btn btn-sm m-1 {{ 'btn-info' if is_selected else 'btn-outline-info' }}"
+              id="tag-btn-{{ tag.id }}"
+              onclick="toggleTag('{{ tag.id }}', '{{ tag.name }}')">
+        {{ tag.name }}
+      </button>
+    {% endfor %}
+  </div>
+
+  <!-- Add new tag input -->
+<div class="mb-3">
+  <label for="new-tag-name" class="form-label">Add New Tag</label>
+  <div class="input-group">
+    <input type="text" id="new-tag-name" class="form-control" placeholder="Enter tag name">
+    <div class="input-group-append">
+      <button class="btn btn-success" type="button" onclick="createTag()">Add</button>
+    </div>
+  </div>
+</div>
+
+  <!-- Hidden input for selected tags -->
+  <input type="hidden" name="tags" id="tag-ids" />
+
+  <!-- Buttons -->
+  <div class="text-center">
+    <button type="submit" class="btn btn-success">Update Note</button>
+    <a href="/" class="btn btn-secondary">Cancel</a>
+  </div>
+</form>
+
+{% endblock %}
+
+{% block javascript %}
+<script>
+  const selectedTags = new Map();
+
+  // Pre-fill selectedTags from server-rendered list (via tojson)
+  const presetTags = {{ note_tag_dicts | tojson }};
+  presetTags.forEach(tag => {
+    selectedTags.set(tag.id.toString(), tag.name);
+
+    // Also update button UI to "selected"
+    const btn = document.getElementById("tag-btn-" + tag.id);
+    if (btn) {
+      btn.classList.remove("btn-outline-info");
+      btn.classList.add("btn-info");
+    }
+  });
+
+  function toggleTag(id, name) {
+    const btn = document.getElementById("tag-btn-" + id);
+
+    if (selectedTags.has(id)) {
+      selectedTags.delete(id);
+      btn.classList.remove("btn-info");
+      btn.classList.add("btn-outline-info");
+    } else {
+      selectedTags.set(id, name);
+      btn.classList.remove("btn-outline-info");
+      btn.classList.add("btn-info");
+    }
+
+    updateSelectedTags();
+  }
+
+  function updateSelectedTags() {
+    const tagIdsInput = document.getElementById("tag-ids");
+    tagIdsInput.value = Array.from(selectedTags.keys()).join(",");
+  }
+
+  function createTag() {
+    const input = document.getElementById("new-tag-name");
+    const name = input.value.trim();
+    if (!name) return;
+
+    fetch("/create-tag", {
+      method: "POST",
+      body: JSON.stringify({ name: name }),
+      headers: {
+        "Content-Type": "application/json"
+      }
+    }).then(res => res.json()).then(data => {
+      if (data.success) {
+        const tagId = data.id;
+        const tagListDiv = document.getElementById("tag-selection");
+
+        // Create new button
+        const btn = document.createElement("button");
+        btn.className = "btn btn-sm btn-info m-1"; // selected by default
+        btn.id = "tag-btn-" + tagId;
+        btn.innerText = name;
+        btn.type = "button";
+        btn.onclick = () => toggleTag(tagId, name);
+
+        tagListDiv.appendChild(btn);
+        input.value = "";
+      } else {
+        alert(data.message || "Failed to create tag.");
+      }
+    });
+  }
+
+  // Initial update on load
+  updateSelectedTags();
+</script>
+{% endblock %}

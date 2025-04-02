@@ -1,0 +1,168 @@
+{% extends "base.html" %} 
+{% block title %}Home{% endblock %} 
+{% block content %}
+
+<h1 style="text-align: center;">Notes</h1>
+
+<ul class="list-group list-group-flush" id="notes">
+  {% for note in user.notes %}
+  <li class="list-group-item">
+    {{ note.data }}
+    <br />
+    <small class="text-muted">Tags:
+      {% if note.tags %}
+        {% for tag in note.tags %}
+          <span class="badge badge-info mr-1">
+            {{ tag.name }}
+          </span>
+        {% endfor %}
+      {% else %}
+        <span class="text-muted">None</span>
+      {% endif %}
+      <br />
+      Last updated: {{ note.last_modified.strftime("%Y-%m-%d %H:%M") if note.last_modified else note.date.strftime("%Y-%m-%d %H:%M") }}
+    </small>
+    <button type="button" class="close" onClick="deleteNote('{{ note.id }}')">
+      <span aria-hidden="true">&times;</span>
+    </button>
+    <a href="/edit-note/{{ note.id }}" class="btn btn-sm btn-outline-secondary float-right">Edit</a>
+  </li>  
+  {% endfor %}
+</ul>
+
+<!-- Add note form -->
+<form method="POST" autocomplete="off">
+  <textarea name="note" id="note" class="form-control" placeholder="Write your note..."></textarea>
+  <br />
+
+  <!-- Tag selection -->
+  <div id="tag-selection" class="mb-2">
+    {% for tag in tags %}
+      <button type="button" class="btn btn-outline-info btn-sm m-1"
+              onclick="toggleTag('{{ tag.id }}', '{{ tag.name }}')"
+              id="tag-btn-{{ tag.id }}">
+        {{ tag.name }}
+      </button>
+    {% endfor %}
+  </div>
+
+  <input type="hidden" name="tags" id="tag-ids" />
+
+  <div class="text-center">
+    <button type="button" class="btn btn-secondary mr-2" data-toggle="modal" data-target="#manageTagsModal">Manage Tags</button>
+    <button type="submit" class="btn btn-primary">Add Note</button>
+  </div>
+</form>
+
+<!-- Manage Tags Modal -->
+<div class="modal fade" id="manageTagsModal" tabindex="-1" role="dialog" aria-labelledby="manageTagsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title" id="manageTagsModalLabel">Manage Tags</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <label class="mb-2">Existing Tags</label>
+        <ul class="list-group mb-3">
+          {% for tag in tags %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              {{ tag.name }}
+              <button class="btn btn-sm btn-danger" onclick="deleteTagGlobally('{{ tag.id }}')">Delete</button>
+            </li>
+          {% endfor %}
+        </ul>
+
+        <label for="new-tag-name" class="form-label">Add New Tag</label>
+        <div class="input-group">
+          <input type="text" id="new-tag-name" class="form-control" placeholder="Enter tag name">
+          <div class="input-group-append">
+            <button class="btn btn-success" type="button" onclick="createTag()">Add</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block javascript %}
+<script>
+  // Delete a note
+  function deleteNote(noteId) {
+    fetch("/delete-note", {
+      method: "POST",
+      body: JSON.stringify({ noteId: noteId }),
+    }).then(() => {
+      window.location.href = "/";
+    });
+  }
+
+  // Select tag for new note
+  const selectedTags = new Map();
+
+  function toggleTag(id, name) {
+    if (selectedTags.has(id)) {
+      selectedTags.delete(id);
+      document.getElementById("tag-btn-" + id).classList.remove("btn-info");
+      document.getElementById("tag-btn-" + id).classList.add("btn-outline-info");
+    } else {
+      selectedTags.set(id, name);
+      document.getElementById("tag-btn-" + id).classList.remove("btn-outline-info");
+      document.getElementById("tag-btn-" + id).classList.add("btn-info");
+    }
+    updateSelectedTags();
+  }
+
+  function updateSelectedTags() {
+    const hiddenInput = document.getElementById("tag-ids");
+    hiddenInput.value = Array.from(selectedTags.keys()).join(",");
+  }
+
+  // Add new tag from modal
+  function createTag() {
+    const input = document.getElementById("new-tag-name");
+    const name = input.value.trim();
+    if (!name) return;
+
+    fetch("/create-tag", {
+      method: "POST",
+      body: JSON.stringify({ name: name }),
+      headers: {
+        "Content-Type": "application/json"
+      }
+    }).then(res => res.json()).then(data => {
+      if (data.success) {
+        window.location.href = "/";
+      } else {
+        alert(data.message || "Failed to create tag.");
+      }
+    });
+  }
+
+  // Globally delete a tag from database and all notes
+  function deleteTagGlobally(tagId) {
+    if (!confirm("Are you sure you want to delete this tag from all notes?")) return;
+
+    fetch("/delete-tag-global", {
+      method: "POST",
+      body: JSON.stringify({ tag_id: tagId }),
+      headers: {
+        "Content-Type": "application/json"
+      }
+    }).then(res => res.json()).then(data => {
+      if (data.success) {
+        window.location.href = "/";
+      } else {
+        alert(data.message || "Failed to delete tag.");
+      }
+    });
+  }
+</script>
+{% endblock %}
