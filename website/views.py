@@ -136,18 +136,20 @@ def search_notes():
             sql += "LEFT JOIN tag t ON t.id = nt.tag_id WHERE n.user_id = :uid"
             params = {"uid": current_user.id}
 
+            # Filter by date
             if start_date and end_date:
                 sql += " AND DATE(n.date) BETWEEN :start AND :end"
                 params["start"] = start_date
                 params["end"] = end_date
                 filter_summary.append(f"Date range: {start_date} to {end_date}")
 
+            # Filter by keyword
             if keyword:
                 sql += " AND LOWER(n.data) LIKE LOWER(:kw)"
                 params["kw"] = f"%{keyword}%"
                 filter_summary.append(f"Keyword: '{keyword}'")
 
-
+            # Filter by tag IDs
             if selected_tag_ids:
                 tag_placeholders = ','.join([f":tag{i}" for i in range(len(selected_tag_ids))])
                 sql += f" AND t.id IN ({tag_placeholders})"
